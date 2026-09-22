@@ -1,0 +1,52 @@
+[
+  {
+    "q": "What are your opening hours?",
+    "a": "We're open Monday to Saturday, 11am to 10pm. Closed Sundays.",
+    "keywords": ["hours", "open", "close", "time", "when"]
+  },
+  {
+    "q": "Do you take reservations?",
+    "a": "Yes! Reply with your preferred date, time, and party size and we'll confirm it for you.",
+    "keywords": ["reservation", "book", "table", "reserve"]
+  },
+  {
+    "q": "Do you have vegetarian or vegan options?",
+    "a": "Yes, we have a dedicated vegetarian menu and several vegan dishes marked (V) on the menu.",
+    "keywords": ["vegetarian", "vegan", "plant-based", "meat-free"]
+  },
+  {
+    "q": "Do you offer delivery?",
+    "a": "Yes, we deliver within 5km through our own service and on UberEats/DoorDash.",
+    "keywords": ["delivery", "deliver", "uber", "doordash", "order online"]
+  },
+  {
+    "q": "Where are you located?",
+    "a": "We're at 42 Market Street, downtown -- right next to the central parking garage.",
+    "keywords": ["address", "location", "where", "directions", "parking"]
+  },
+  {
+    "q": "Do you have parking?",
+    "a": "There's no dedicated lot, but the public parking garage next door has hourly rates.",
+    "keywords": ["parking", "park", "garage"]
+  },
+  {
+    "q": "Can I bring my kids?",
+    "a": "Absolutely -- we have a kids' menu and high chairs available.",
+    "keywords": ["kids", "children", "family", "high chair"]
+  },
+  {
+    "q": "Do you cater private events?",
+    "a": "Yes, we cater private events for up to 40 guests. Reply with your date and headcount and we'll send a quote.",
+    "keywords": ["catering", "cater", "event", "party", "private"]
+  },
+  {
+    "q": "What payment methods do you accept?",
+    "a": "We accept all major cards, Apple Pay, Google Pay, and cash.",
+    "keywords": ["payment", "pay", "card", "cash", "apple pay", "google pay"]
+  },
+  {
+    "q": "Do you have gift cards?",
+    "a": "Yes, gift cards are available in-store or online in any amount from $25 up.",
+    "keywords": ["gift card", "gift certificate", "voucher"]
+  }
+]

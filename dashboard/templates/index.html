@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>{{ bot_name }} — Dashboard</title>
+  <style>
+    :root {
+      --bg: #0b0f14;
+      --panel: #12181f;
+      --border: #212a34;
+      --text: #e6edf3;
+      --muted: #7d8b99;
+      --accent: #34d399;
+      --accent-dim: rgba(52, 211, 153, 0.12);
+      --danger: #f87171;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      padding: 24px 16px 60px;
+    }
+    .wrap { max-width: 960px; margin: 0 auto; }
+    header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 28px; flex-wrap: wrap; gap: 8px; }
+    h1 { font-size: 1.3rem; margin: 0; }
+    .live-since { color: var(--muted); font-size: 0.85rem; }
+    .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-bottom: 28px; }
+    .stat-card { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 16px; }
+    .stat-value { font-size: 1.8rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+    .stat-label { color: var(--muted); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.06em; margin-top: 4px; }
+    table { width: 100%; border-collapse: collapse; background: var(--panel); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+    th, td { text-align: left; padding: 10px 12px; font-size: 0.85rem; border-bottom: 1px solid var(--border); }
+    th { color: var(--muted); font-weight: 600; text-transform: uppercase; font-size: 0.7rem; letter-spacing: 0.05em; }
+    tr:last-child td { border-bottom: none; }
+    .intent-tag { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 0.72rem; background: var(--accent-dim); color: var(--accent); }
+    .clear-btn { background: transparent; border: 1px solid var(--border); color: var(--danger); border-radius: 6px; padding: 4px 10px; font-size: 0.78rem; cursor: pointer; }
+    .clear-btn:hover { border-color: var(--danger); }
+    .empty { color: var(--muted); padding: 24px; text-align: center; }
+    @media (max-width: 640px) {
+      th:nth-child(2), td:nth-child(2) { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <h1>{{ bot_name }} — Dashboard</h1>
+      <span class="live-since" id="live-since">Live since: —</span>
+    </header>
+
+    <div class="stats">
+      <div class="stat-card"><div class="stat-value" id="stat-total">—</div><div class="stat-label">Total conversations</div></div>
+      <div class="stat-card"><div class="stat-value" id="stat-ai">—</div><div class="stat-label">AI handled</div></div>
+      <div class="stat-card"><div class="stat-value" id="stat-human">—</div><div class="stat-label">Routed to human</div></div>
+    </div>
+
+    <table>
+      <thead>
+        <tr><th>Phone</th><th>Last message</th><th>Intent</th><th>Time</th><th></th></tr>
+      </thead>
+      <tbody id="conversations-body">
+        <tr><td colspan="5" class="empty">Loading…</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <script>
+    async function loadStats() {
+      const res = await fetch("/admin/api/stats");
+      const data = await res.json();
+      document.getElementById("stat-total").textContent = data.total_conversations ?? 0;
+      document.getElementById("stat-ai").textContent = data.ai_handled ?? 0;
+      document.getElementById("stat-human").textContent = data.human_routed ?? 0;
+      document.getElementById("live-since").textContent = data.live_since
+        ? "Live since: " + new Date(data.live_since).toLocaleString()
+        : "Live since: not yet contacted";
+    }
+
+    async function clearConversation(phone) {
+      await fetch(`/admin/api/conversations/${encodeURIComponent(phone)}/clear`, { method: "POST" });
+      loadConversations();
+    }
+
+    async function loadConversations() {
+      const res = await fetch("/admin/api/conversations");
+      const rows = await res.json();
+      const body = document.getElementById("conversations-body");
+      if (!rows.length) {
+        body.innerHTML = '<tr><td colspan="5" class="empty">No conversations yet.</td></tr>';
+        return;
+      }
+      body.innerHTML = rows.map(row => `
+        <tr>
+          <td>${row.phone_masked ?? "—"}</td>
+          <td>${(row.last_message ?? "").slice(0, 60)}</td>
+          <td><span class="intent-tag">${row.last_intent ?? "—"}</span></td>
+          <td>${row.last_ts ? new Date(row.last_ts).toLocaleTimeString() : "—"}</td>
+          <td><button class="clear-btn" onclick="clearConversation('${row.phone}')">Clear</button></td>
+        </tr>
+      `).join("");
+    }
+
+    function refresh() {
+      loadStats();
+      loadConversations();
+    }
+
+    refresh();
+    setInterval(refresh, 30000);
+  </script>
+</body>
+</html>
