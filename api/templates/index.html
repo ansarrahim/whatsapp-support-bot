@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>{{ bot_name }}</title>
+  <style>
+    :root {
+      --bg: #0b0f14; --panel: #12181f; --border: #212a34;
+      --text: #e6edf3; --muted: #7d8b99; --accent: #34d399;
+      --status: {{ status_color }};
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; background: var(--bg); color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      padding: 48px 16px 80px;
+    }
+    .wrap { max-width: 560px; margin: 0 auto; }
+    h1 { font-size: 1.5rem; margin: 0 0 4px; }
+    .status { color: var(--status); font-size: 0.9rem; margin: 0 0 24px; }
+    a { color: var(--accent); }
+    code { background: var(--panel); padding: 2px 6px; border-radius: 4px; font-size: 0.85em; }
+    .links { color: var(--muted); font-size: 0.85rem; margin-bottom: 32px; }
+
+    .chat { background: var(--panel); border: 1px solid var(--border); border-radius: 14px; overflow: hidden; }
+    .chat-header { padding: 12px 16px; border-bottom: 1px solid var(--border); font-size: 0.8rem; color: var(--muted); }
+    .chat-body { height: 320px; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 10px; }
+    .msg { max-width: 85%; padding: 8px 12px; border-radius: 12px; font-size: 0.9rem; line-height: 1.4; white-space: pre-wrap; }
+    .msg.user { align-self: flex-end; background: var(--accent); color: #04120c; border-bottom-right-radius: 3px; }
+    .msg.bot { align-self: flex-start; background: #1a2129; border: 1px solid var(--border); border-bottom-left-radius: 3px; }
+    .msg.pending { opacity: 0.6; }
+    .chat-form { display: flex; gap: 8px; padding: 12px; border-top: 1px solid var(--border); }
+    .chat-form input {
+      flex: 1; background: #0d1319; border: 1px solid var(--border); border-radius: 8px;
+      color: var(--text); padding: 10px 12px; font-size: 0.9rem; outline: none;
+    }
+    .chat-form input:focus { border-color: var(--accent); }
+    .chat-form button {
+      background: var(--accent); color: #04120c; border: none; border-radius: 8px;
+      padding: 0 16px; font-weight: 600; cursor: pointer; font-size: 0.9rem;
+    }
+    .chat-form button:disabled { opacity: 0.5; cursor: not-allowed; }
+    .hint { color: var(--muted); font-size: 0.78rem; margin-top: 10px; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>{{ bot_name }}</h1>
+    <p class="status">{{ status_line }}</p>
+    <p class="links">
+      <a href="/admin">Admin dashboard</a> &middot; <a href="/health">Health check (JSON)</a><br />
+      Twilio webhook endpoint: <code>POST /webhook</code>
+    </p>
+
+    <div class="chat">
+      <div class="chat-header">Live demo — talk to {{ bot_name }} right here (real Gemini, no WhatsApp needed)</div>
+      <div class="chat-body" id="chat-body">
+        <div class="msg bot">Hey! Ask me something like "what are your hours" or "do you deliver" — or try "I want a refund" to see the escalation path.</div>
+      </div>
+      <form class="chat-form" id="chat-form">
+        <input type="text" id="chat-input" placeholder="Type a message..." maxlength="300" autocomplete="off" />
+        <button type="submit" id="chat-send">Send</button>
+      </form>
+    </div>
+    <p class="hint">This calls the same classify → route → respond pipeline as real WhatsApp traffic — just without a phone number attached.</p>
+  </div>
+
+  <script>
+    const form = document.getElementById("chat-form");
+    const input = document.getElementById("chat-input");
+    const body = document.getElementById("chat-body");
+    const sendBtn = document.getElementById("chat-send");
+
+    function addMessage(text, cls) {
+      const div = document.createElement("div");
+      div.className = "msg " + cls;
+      div.textContent = text;
+      body.appendChild(div);
+      body.scrollTop = body.scrollHeight;
+      return div;
+    }
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const text = input.value.trim();
+      if (!text) return;
+      addMessage(text, "user");
+      input.value = "";
+      input.disabled = true;
+      sendBtn.disabled = true;
+      const pending = addMessage("…", "bot pending");
+
+      try {
+        const res = await fetch("/api/demo", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ message: text }),
+        });
+        const data = await res.json();
+        pending.textContent = data.reply || "Sorry, something went wrong.";
+        pending.classList.remove("pending");
+      } catch (err) {
+        pending.textContent = "Couldn't reach the bot — try again in a moment.";
+        pending.classList.remove("pending");
+      } finally {
+        input.disabled = false;
+        sendBtn.disabled = false;
+        input.focus();
+      }
+    });
+  </script>
+</body>
+</html>

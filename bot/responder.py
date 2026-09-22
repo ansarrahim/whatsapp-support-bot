@@ -76,3 +76,25 @@ def build_response(message: str, sender: str, media_url: str | None) -> str:
     memory.update_meta(sender, last_message=message, last_intent=intent)
 
     return reply
+
+
+def build_demo_response(message: str) -> dict:
+    """Stateless variant of build_response for the public web demo widget --
+    same classify/route/generate pipeline as real WhatsApp traffic, but no
+    memory writes and no real escalation email (a demo visitor isn't a real
+    customer conversation, and this keeps the admin dashboard's stats
+    meaningful instead of mixed with demo traffic)."""
+    intent = ai_client.classify_intent(message, [])
+    escalate = _is_escalation_triggered(message, intent)
+
+    if escalate:
+        reply = "Got it — I'm connecting you with our team, they'll follow up with you shortly."
+        shown_intent = "human_request"
+    elif intent == "greeting":
+        reply = f"Hey there! I'm {settings.BOT_NAME}. Ask me about hours, reservations, delivery, or anything else — happy to help."
+        shown_intent = "greeting"
+    else:
+        reply = ai_client.generate_response(message, [], load_faqs())
+        shown_intent = "faq"
+
+    return {"intent": shown_intent, "reply": reply}

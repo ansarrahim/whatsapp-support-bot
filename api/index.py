@@ -24,33 +24,49 @@ if sys.platform == "win32":
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 
-from flask import Flask, Response, request
+from flask import Flask, Response, jsonify, render_template, request
 
 from config import settings
-from bot.responder import build_response
+from bot.responder import build_demo_response, build_response
 from dashboard.routes import admin_bp
 
 app = Flask(__name__)
 app.register_blueprint(admin_bp)
+
+_MAX_DEMO_MESSAGE_LENGTH = 300
 
 
 @app.route("/", methods=["GET"])
 def home():
     missing = settings.validate()
     status_line = "Fully configured" if not missing else f"{len(missing)} credential(s) not yet configured"
-    return f"""<!doctype html>
-<html><head><meta charset="utf-8"><title>{settings.BOT_NAME}</title>
-<style>
-body{{background:#0b0f14;color:#e6edf3;font-family:-apple-system,sans-serif;
-max-width:640px;margin:60px auto;padding:0 20px;line-height:1.5}}
-a{{color:#34d399}} code{{background:#12181f;padding:2px 6px;border-radius:4px}}
-.status{{color:{'#34d399' if not missing else '#f87171'}}}
-</style></head><body>
-<h1>{settings.BOT_NAME}</h1>
-<p>A WhatsApp AI customer-support bot. Status: <span class="status">{status_line}</span></p>
-<p><a href="/admin">Admin dashboard</a> &middot; <a href="/health">Health check (JSON)</a></p>
-<p>Twilio webhook endpoint: <code>POST /webhook</code></p>
-</body></html>"""
+    return render_template(
+        "index.html",
+        bot_name=settings.BOT_NAME,
+        status_line=status_line,
+        status_color="#34d399" if not missing else "#f87171",
+    )
+
+
+@app.route("/api/demo", methods=["POST"])
+def api_demo():
+    """Public, stateless chat demo -- lets a visitor try the real Gemini
+    pipeline right on the landing page without needing WhatsApp/Twilio set
+    up. No memory writes, no escalation email (see build_demo_response's
+    docstring). Message length is capped as a light abuse guard; a proper
+    per-IP rate limit would need Upstash, which isn't wired up here yet."""
+    data = request.get_json(silent=True) or {}
+    message = str(data.get("message", "")).strip()[:_MAX_DEMO_MESSAGE_LENGTH]
+    if not message:
+        return jsonify({"intent": "error", "reply": "Type something first!"}), 400
+
+    try:
+        result = build_demo_response(message)
+    except Exception:
+        logging.exception("build_demo_response failed.")
+        result = {"intent": "error", "reply": "Sorry, something went wrong on our end -- try again in a moment."}
+
+    return jsonify(result)
 
 
 @app.route("/webhook", methods=["POST"])
