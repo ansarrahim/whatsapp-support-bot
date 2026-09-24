@@ -6,13 +6,14 @@ fabricated stats, including no fake "uptime": see get_stats()['live_since'].
 from flask import Blueprint, jsonify, render_template
 
 from bot import memory
+from config import settings
 
 admin_bp = Blueprint("admin", __name__, url_prefix="/admin", template_folder="templates")
 
 
 @admin_bp.route("/")
 def index():
-    return render_template("index.html", bot_name="SupportBot")
+    return render_template("dashboard.html", bot_name=settings.BOT_NAME)
 
 
 @admin_bp.route("/api/stats")
