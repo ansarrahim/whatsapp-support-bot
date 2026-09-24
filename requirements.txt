@@ -1,5 +1,6 @@
-flask
-python-dotenv
-upstash-redis
-google-genai
-requests
+flask>=3.1,<4
+python-dotenv>=1.2,<2
+upstash-redis>=1.8,<2
+google-genai>=2.24,<3
+requests>=2.34,<3
+twilio>=9.11,<10

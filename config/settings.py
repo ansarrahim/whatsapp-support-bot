@@ -45,6 +45,17 @@ ESCALATION_KEYWORDS = [
     if kw.strip()
 ]
 
+# --- Admin dashboard auth ---
+# HTTP Basic Auth, single shared password (no separate username). Unset means
+# /admin is closed entirely (401), not silently open -- same fail-safe
+# direction as everything else here.
+ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD")
+
+# --- Abuse guards ---
+MAX_WEBHOOK_MESSAGE_LENGTH = 2000  # WhatsApp's own text limit is ~4096; well under it
+MAX_DEMO_MESSAGE_LENGTH = 300
+DEMO_RATE_LIMIT_PER_MINUTE = 5
+
 
 def validate() -> list[str]:
     """Return the names of unset required-for-full-operation env vars.

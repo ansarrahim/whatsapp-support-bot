@@ -83,6 +83,7 @@ vercel env add AGENT_EMAIL
 vercel env add BOT_NAME
 vercel env add MAX_HISTORY_MESSAGES
 vercel env add ESCALATION_KEYWORDS
+vercel env add ADMIN_PASSWORD
 vercel --prod
 ```
 
@@ -104,6 +105,20 @@ number's webhook at `https://<your-domain>/webhook`.
 | `BOT_NAME` | `bot/responder.py`, dashboard | display name |
 | `MAX_HISTORY_MESSAGES` | `bot/memory.py` | conversation memory length |
 | `ESCALATION_KEYWORDS` | `bot/responder.py` | which words trigger human handoff |
+| `ADMIN_PASSWORD` | `dashboard/routes.py` | unlocking `/admin` (HTTP Basic Auth, any username) |
+
+## Security model
+
+- **`/webhook` only accepts requests genuinely signed by Twilio.** Without
+  `TWILIO_AUTH_TOKEN` set, every request is rejected (403) — the webhook is
+  closed by default, not open until you configure it.
+- **`/admin/*` requires `ADMIN_PASSWORD`** via HTTP Basic Auth. Unset means
+  the whole dashboard, including the "clear conversation" action, is closed
+  (401).
+- **`/api/demo`** (the public landing-page chat widget) is rate-limited to
+  `DEMO_RATE_LIMIT_PER_MINUTE` (default 5) requests per IP per minute, plus a
+  300-character message cap — it calls the real Gemini API on your key, so
+  it's a real cost surface, not just a style concern.
 
 ## Customizing the FAQ knowledge base
 

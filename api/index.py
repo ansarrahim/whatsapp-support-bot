@@ -25,15 +25,32 @@ if sys.platform == "win32":
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 
 from flask import Flask, Response, jsonify, render_template, request
+from twilio.request_validator import RequestValidator
+from werkzeug.middleware.proxy_fix import ProxyFix
 
 from config import settings
+from bot import ratelimit
 from bot.responder import build_demo_response, build_response
 from dashboard.routes import admin_bp
 
 app = Flask(__name__)
+# Vercel terminates TLS in front of the function -- without this, Flask sees
+# an internal http:// URL, which breaks Twilio signature validation (Twilio
+# signs the real https:// URL it actually called).
+app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
 app.register_blueprint(admin_bp)
 
-_MAX_DEMO_MESSAGE_LENGTH = 300
+
+def _validate_twilio_request(req) -> bool:
+    """No TWILIO_AUTH_TOKEN configured means the webhook is closed (fails
+    validation), not open -- same fail-safe direction as the rest of this
+    codebase. Once real Twilio credentials are set, only requests genuinely
+    signed by Twilio are accepted."""
+    if not settings.TWILIO_AUTH_TOKEN:
+        return False
+    validator = RequestValidator(settings.TWILIO_AUTH_TOKEN)
+    signature = req.headers.get("X-Twilio-Signature", "")
+    return validator.validate(req.url, req.form.to_dict(), signature)
 
 
 @app.route("/", methods=["GET"])
@@ -53,10 +70,15 @@ def api_demo():
     """Public, stateless chat demo -- lets a visitor try the real Gemini
     pipeline right on the landing page without needing WhatsApp/Twilio set
     up. No memory writes, no escalation email (see build_demo_response's
-    docstring). Message length is capped as a light abuse guard; a proper
-    per-IP rate limit would need Upstash, which isn't wired up here yet."""
+    docstring). Length-capped and per-IP rate-limited -- this calls the real
+    Gemini API on the owner's key, so it's a real cost surface, not just a
+    style concern."""
+    ip = ratelimit.client_ip(request.headers, request.remote_addr)
+    if ratelimit.is_rate_limited(f"demo:{ip}", settings.DEMO_RATE_LIMIT_PER_MINUTE):
+        return jsonify({"intent": "error", "reply": "Too many messages -- try again in a minute."}), 429
+
     data = request.get_json(silent=True) or {}
-    message = str(data.get("message", "")).strip()[:_MAX_DEMO_MESSAGE_LENGTH]
+    message = str(data.get("message", "")).strip()[: settings.MAX_DEMO_MESSAGE_LENGTH]
     if not message:
         return jsonify({"intent": "error", "reply": "Type something first!"}), 400
 
@@ -71,7 +93,11 @@ def api_demo():
 
 @app.route("/webhook", methods=["POST"])
 def webhook():
-    body = request.form.get("Body", "")
+    if not _validate_twilio_request(request):
+        logging.warning("Rejected /webhook request with missing/invalid Twilio signature.")
+        return Response(status=403)
+
+    body = request.form.get("Body", "")[: settings.MAX_WEBHOOK_MESSAGE_LENGTH]
     sender = request.form.get("From", "")
     media_url = request.form.get("MediaUrl0")
 
